@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "prometheus-solr-exporter.fullname" . }}
+data:
+  hosts_all: |
+    127.0.0.1 localhost
+
+  solrtopic.xml: |
+    <?xml version="1.0" encoding="UTF-8" ?>
+    <config>
+    <rules>
+
+    <ping>
+    </ping>
+
+    <metrics>
+      <lst name="request">
+        <lst name="query">
+          <str name="path">/admin/metrics</str>
+          <lst name="params">
+            <str name="group">jvm,node,jetty</str>
+            <str name="type">counter,gauge,meter,timer</str>
+            <str name="prefix"></str>
+            <str name="property"></str>
+          </lst>
+        </lst>
+        <arr name="jsonQueries">
+           <str>
+            .metrics["solr.node"] | to_entries | .[] | select(.key | startswith("CONTAINER.fs.coreRoot.")) | select(.key | endswith(".totalSpace") or endswith(".usableSpace")) as $object |
+            $object.key | split(".") as $key_items |
+            $key_items | length as $label_len |
+            $key_items[0] as $category |
+            $key_items[3] as $item |
+            $object.value as $value |
+            {
+              name         : "solrtopic_filtered_metrics_node_core_root_fs_bytes",
+              type         : "GAUGE",
+              help         : "See following URL: https://lucene.apache.org/solrtopic/guide/7_1/metrics-reporting.html",
+              label_names  : ["category", "item"],
+              label_values : [$category, $item],
+              value        : $value
+            }
+           </str>
+        </arr>
+      </lst>
+      </metrics>
+      </rules>
+      </config>
+
